@@ -4,80 +4,60 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
-    [SerializeField] private float movementSpeed = 2f;
-    private CharacterController _controller;
-    private Animator _animator;
-    private Transform _mainCamera;
-    private float currentSpeed = 0f;
-    private float speedSmoothVelocity = 0f;
-    private float speedSmoothTime = 0.1f;
-    private float rotationSpeed = 0.1f;
-    private float gravity = 3f;
-
+    [SerializeField] float Speed = 15;
+    [SerializeField] float sensitivity = 10;
+    [SerializeField] bool invert = false;
+    [SerializeField] bool lockCamera = false;
+    [SerializeField] GameObject CameraHolder;
+    float player_rotationX;
+    float camera_minimumY = -10;
+    float camera_maximumY = 30;
+    float camera_rotationY;
+    float camera_rotationX;
+    
     private void Start()
     {
-        _controller = GetComponent<CharacterController>();
-        if (_controller == null)
-        {
-            Debug.LogError("PlayerMovement, Start, controller not found");
-            Application.Quit();;
-        }
-        _animator = GetComponent<Animator>();
-        if (_animator == null)
-        {
-            Debug.LogError("PlayerMovement, Start, animator not found");
-            Application.Quit();;
-        }
-
-        var cam = Camera.main;
-        if (cam == null)
-        {
-            Debug.LogError("PlayerMovement, Start, camera not found");
-            Application.Quit();
-        }
-        // ReSharper disable once PossibleNullReferenceException
-        _mainCamera = cam.transform;
-        // ReSharper disable once InvertIf
-        if (_mainCamera == null)
-        {
-            Debug.LogError("PlayerMovement, Start, camera transform not found");
-            Application.Quit();;
-        }
+        Cursor.lockState = CursorLockMode.Locked;
     }
 
     private void Update()
     {
-        Move();
+        MovePlayer();
+        MoveCamera();
     }
 
-    private void Move()
+    void MovePlayer()
     {
-        Vector2 moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-        Vector3 forward = _mainCamera.forward;
-        Vector3 right = _mainCamera.right;
-
-        forward.y = 0;
-        right.y = 0;
-        
-        forward.Normalize();
-        right.Normalize();
-
-        Vector3 moveDirection = (forward * moveInput.y + right * moveInput.x).normalized;
-        Vector3 gravityVector = Vector3.zero;
-
-        if (!_controller.isGrounded)
+        var inputY = Input.GetAxis("Vertical");
+        var inputX = Input.GetAxis("Horizontal");
+        transform.position += transform.forward * Speed * inputY * Time.deltaTime;
+        player_rotationX += inputX * sensitivity;
+        transform.localEulerAngles = new Vector3(0, player_rotationX, 0);
+        if (lockCamera)
         {
-            gravityVector.y -= gravity;
+            camera_rotationX += inputX * sensitivity;
+            CameraHolder.transform.localEulerAngles = new Vector3(0, camera_rotationX, 0);
+            CameraHolder.transform.position = transform.position;
         }
+    }
 
-        if (moveDirection != Vector3.zero)
+    void MoveCamera()
+    {
+        if (lockCamera)
         {
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(moveDirection),rotationSpeed );
+            return;
         }
-        float targetSpeed = movementSpeed * moveInput.magnitude;
-        currentSpeed = Mathf.SmoothDamp(currentSpeed, targetSpeed, ref speedSmoothVelocity, speedSmoothTime);
-
-        _controller.Move(moveDirection * (currentSpeed * Time.deltaTime));
-        _controller.Move(gravityVector * Time.deltaTime);
+        if (invert)
+        {
+            camera_rotationY -= Input.GetAxis("Mouse Y") * sensitivity;
+        }
+        else
+        {
+            camera_rotationY += Input.GetAxis("Mouse Y") * sensitivity;    
+        }
+        camera_rotationX += Input.GetAxis("Mouse X") * sensitivity;
+        camera_rotationY = Mathf.Clamp(camera_rotationY, camera_minimumY, camera_maximumY);
+        CameraHolder.transform.localEulerAngles = new Vector3(-camera_rotationY, camera_rotationX, 0);
+        CameraHolder.transform.position = transform.position;
     }
 }
